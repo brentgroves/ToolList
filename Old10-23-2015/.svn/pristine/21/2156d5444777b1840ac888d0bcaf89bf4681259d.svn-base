@@ -1,0 +1,5 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Business Objects\Suite 11.0\Crystal Reports]
+"CommonFiles"="c:\\program files\\common files\\business objects\\3.0\\bin"
+

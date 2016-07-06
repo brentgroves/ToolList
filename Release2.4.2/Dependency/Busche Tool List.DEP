@@ -1,0 +1,66 @@
+[Version]
+Version=2.4.0.2
+
+[Busche Tool List.exe <0009>]
+Dest=$(AppPath)
+Date=1/30/2015
+Time=09:39
+Version=2.4.0.2
+CABFilename=Busche Tool List.CAB
+CABINFFile=Busche Tool List.INF
+Uses1=msvbvm60.dll
+Uses2=OLEAUT32.DLL
+Uses3=OLEPRO32.DLL
+Uses4=ASYCFILT.DLL
+Uses5=STDOLE2.TLB
+Uses6=COMCAT.DLL
+Uses7=msado25.tlb
+Uses8=msstdfmt.dll
+Uses9=ossmtp.dll
+Uses10=CMDLGD6.dll
+Uses11=CRViewer.dll
+Uses12=craxdrt.dll
+Uses13=sviewhlp.dll
+Uses14=swebrs.dll
+Uses15=MSCOMCTL.OCX
+Uses16=sptbdock.ocx
+Uses17=mscomct2.ocx
+Uses18=richtx32.Ocx
+Uses19=ComDlg32.OCX
+Uses20=cslibu-2-1.dll
+
+[ossmtp.dll <0009>]
+Dest=$(WinSysPath)
+Date=7/31/2005
+Time=11:07
+Version=6.2.0.0
+
+[CMDLGD6.dll <0009>]
+Dest=$(WinSysPath)
+Date=6/22/2003
+Time=19:57
+Version=1.0.0.16
+
+[CRViewer.dll <0009>]
+Dest=$(WinSysPath)
+Date=12/2/2009
+Time=02:58
+Version=11.5.12.1838
+
+[craxdrt.dll <0009>]
+Dest=$(WinSysPath)
+Date=5/4/2008
+Time=04:06
+Version=11.5.10.1263
+
+[sptbdock.ocx <0009>]
+Dest=$(WinSysPath)
+Date=10/19/2001
+Time=16:21
+Version=1.6.0.0
+
+[cslibu-2-1.dll <0009>]
+Dest=$(WinSysPath)
+Date=12/2/2009
+Time=03:06
+Version=11.5.12.1838

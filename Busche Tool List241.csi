@@ -1,0 +1,15 @@
+[History]
+1=#P0#=mb	#P1#=Init	#P2#=BuscheToolList/PublicVar/Init	#P3#=	#P4#=	#P5#=MembMethodPublic	#P6#=20150514085120	#P7#=0	#P8#=3	.
+2=#P0#=mb	#P1#=Command1_Click	#P2#=BuscheToolList/OpenProcess/Command1_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150416145108	#P7#=0	#P8#=-1	.
+3=#P0#=mb	#P1#=AddPartBTN_Click	#P2#=BuscheToolList/ProcessAttr/AddPartBTN_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150416144758	#P7#=0	#P8#=-2	.
+4=#P0#=mb	#P1#=ConsumableCHECK_Click	#P2#=BuscheToolList/MiscItem/ConsumableCHECK_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150212164320	#P7#=0	#P8#=10	.
+5=#P0#=mb	#P1#=DeleteToolList_Click	#P2#=BuscheToolList/MDIForm1/DeleteToolList_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150212164030	#P7#=0	#P8#=1	.
+6=#P0#=mb	#P1#=ViewToolList_Click	#P2#=BuscheToolList/MDIForm1/ViewToolList_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150212163937	#P7#=0	#P8#=1	.
+7=#P0#=mb	#P1#=Command2_Click	#P2#=BuscheToolList/DeleteProcess/Command2_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150212073648	#P7#=0	#P8#=0	.
+8=#P0#=mb	#P1#=VolumeChangeList_DblClick	#P2#=BuscheToolList/CreateRouting/VolumeChangeList_DblClick	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150211163814	#P7#=0	#P8#=7	.
+9=#P0#=mb	#P1#=ListView1_DblClick	#P2#=BuscheToolList/ChangeList/ListView1_DblClick	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150211145421	#P7#=0	#P8#=17	.
+10=#P0#=mb	#P1#=Command1_Click	#P2#=BuscheToolList/ChangeList/Command1_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150211145409	#P7#=0	#P8#=-2	.
+11=#P0#=mb	#P1#=Cancel_Click	#P2#=BuscheToolList/CarbonCopy/Cancel_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150211143624	#P7#=0	#P8#=-1	.
+12=#P0#=mb	#P1#=Configure_Click	#P2#=BuscheToolList/MDIForm1/Configure_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150211101221	#P7#=0	#P8#=1	.
+13=#P0#=mb	#P1#=RefreshActionList	#P2#=BuscheToolList/PublicVar/RefreshActionList	#P3#=	#P4#=	#P5#=MembMethodPublic	#P6#=20150211101138	#P7#=0	#P8#=392	.
+14=#P0#=mb	#P1#=CloseToolList_Click	#P2#=BuscheToolList/MDIForm1/CloseToolList_Click	#P3#=	#P4#=	#P5#=MembEventProcPrivate	#P6#=20150211095439	#P7#=0	#P8#=7	.
