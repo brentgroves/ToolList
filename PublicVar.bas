@@ -319,7 +319,8 @@ Public Sub GetAllPartNumbers()
     ProcessAttr.AllPartNumbersList2.BorderStyle = ccFixedSingle ' Set BorderStyle property.
     ProcessAttr.AllPartNumbersList2.View = lvwReport ' Set View property to Report.
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM INVCUR,INMAST WHERE INVCUR.FCPARTNO = INMAST.FPARTNO AND INVCUR.FLANYCUR = 1 ORDER BY INVCUR.FCPARTNO", M2MsqlConn
+   ' sqlRS.Open "SELECT * FROM INVCUR,INMAST WHERE INVCUR.FCPARTNO = INMAST.FPARTNO AND INVCUR.FLANYCUR = 1 ORDER BY INVCUR.FCPARTNO", M2MsqlConn
+    sqlRS.Open "SELECT fpartno,frev,fcstscode FROM INVCUR,INMAST Where INVCUR.FCPARTNO = INMAST.FPARTNO And INVCUR.FLANYCUR = 1 ORDER BY INVCUR.FCPARTNO", M2MsqlConn
     'Populate Part Numbers and Revisions under columns
     While Not sqlRS.EOF
         Set x = ProcessAttr.AllPartNumbersList2.ListItems.Add(, , sqlRS.Fields("FPARTNO"))
@@ -3524,7 +3525,7 @@ Public Sub SendNeedApprovalNotification(ProcessChangeID)
     EmailSession.MessageSubject = "APPROVAL NOTIFICATION FOR " + sqlRS.Fields("CUSTOMER") + " - " + sqlRS.Fields("PARTFAMILY") + " - " + sqlRS.Fields("OPERATIONDESCRIPTION")
     EmailSession.MessageText = "TOOL LIST CHANGES ARE AWAING APPROVAL." + vbCrLf + vbCrLf + EmailMessage
     EmailSession.AuthenticationType = AuthNone
-    EmailSession.Server = "10.1.2.13"
+    EmailSession.Server = "buschecnc-com01e.mail.protection.outlook.com"
     'TODO use the NotifyMe table to create email sendto list
     'The engineer's want the BuyerCompleted email, Wes wants the DeptMgrApproval email, and Nancy wants the BuyerApproval email only.
     
@@ -3538,8 +3539,8 @@ Public Sub SendNeedApprovalNotification(ProcessChangeID)
     '}
 
     
-    EmailSession.SendTo = SQLRS2.Fields("DEPTMGR") + "@busche-cnc.com"
-    EmailSession.MailFrom = "processchange@busche-cnc.com"
+    EmailSession.SendTo = SQLRS2.Fields("DEPTMGR") + "@buschegroup.com"
+    EmailSession.MailFrom = "processchange@buschegroup.com"
     EmailSession.SendEmail
     sqlRS.Close
     SQLRS2.Close
@@ -3557,9 +3558,9 @@ Public Sub SendNeedCompleteNotification(ProcessChangeID)
     EmailSession.MessageSubject = sqlRS.Fields("CUSTOMER") + " - " + sqlRS.Fields("PARTFAMILY") + " - " + sqlRS.Fields("OPERATIONDESCRIPTION")
     EmailSession.MessageText = "TOOL LIST CHANGES ARE AWAING COMPLETION FROM THE BUYER."
     EmailSession.AuthenticationType = AuthNone
-    EmailSession.Server = "10.1.2.13"
-    EmailSession.SendTo = SQLRS2.Fields("Buyer") + "@busche-cnc.com"
-    EmailSession.MailFrom = "processchange@busche-cnc.com"
+    EmailSession.Server = "buschecnc-com01e.mail.protection.outlook.com"
+    EmailSession.SendTo = SQLRS2.Fields("Buyer") + "@buschegroup.com"
+    EmailSession.MailFrom = "processchange@buschegroup.com"
     EmailSession.SendEmail
     sqlRS.Close
     SQLRS2.Close
@@ -3577,9 +3578,9 @@ Public Sub SendCompleteNotification(ProcessChangeID)
     EmailSession.MessageSubject = sqlRS.Fields("CUSTOMER") + " - " + sqlRS.Fields("PARTFAMILY") + " - " + sqlRS.Fields("OPERATIONDESCRIPTION")
     EmailSession.MessageText = "TOOL LIST CHANGE IS COMPLETE."
     EmailSession.AuthenticationType = AuthNone
-    EmailSession.Server = "10.1.2.13"
-    EmailSession.SendTo = sqlRS.Fields("Engineer") + "@busche-cnc.com"
-    EmailSession.MailFrom = "processchange@busche-cnc.com"
+    EmailSession.Server = "buschecnc-com01e.mail.protection.outlook.com"
+    EmailSession.SendTo = sqlRS.Fields("Engineer") + "@buschegroup.com"
+    EmailSession.MailFrom = "processchange@buschegroup.com"
     EmailSession.SendEmail
     Set EmailSession = Nothing
     sqlRS.Close
