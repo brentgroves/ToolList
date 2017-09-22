@@ -167,7 +167,7 @@ Private Sub CloseToolList_Click()
         If MsgBox("You have made changes that are not recorded on a routing. Do you still wish to exit and lose your changes?", vbYesNo, "Lose Unrouted Changes?") = vbNo Then
             Exit Sub
         End If
-        DeleteProcessSub (ProcessID)
+        DeleteProcessSub (processId)
     End If
     Reset
     ExitLoop = True
@@ -176,6 +176,11 @@ Private Sub CloseToolList_Click()
         ReportForm.Hide
     End If
     reportOpened = False
+    If (True = reportViewed) Then
+        ViewProcess.ListView1.ListItems.Clear
+        ViewProcess.Hide
+        ViewProcess.Refresh
+    End If
 End Sub
 
 Private Sub Configure_Click()
@@ -246,7 +251,7 @@ Private Sub MDIForm_QueryUnload(Cancel As Integer, UnloadMode As Integer)
         If MsgBox("You have made changes that are not recorded on a routing. Do you still wish to exit and lose your changes?", vbYesNo, "Lose Unrouted Changes?") = vbNo Then
             Cancel = 1
         Else
-            DeleteProcessSub (ProcessID)
+            DeleteProcessSub (processId)
             Cancel = 0
         End If
     End If

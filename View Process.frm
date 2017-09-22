@@ -12,6 +12,14 @@ Begin VB.Form ViewProcess
    ScaleHeight     =   6510
    ScaleWidth      =   10140
    WindowState     =   2  'Maximized
+   Begin VB.CommandButton Command3 
+      Caption         =   "Command3"
+      Height          =   675
+      Left            =   6960
+      TabIndex        =   10
+      Top             =   4920
+      Width           =   1695
+   End
    Begin VB.CommandButton Command1 
       Caption         =   "Filter Results"
       Height          =   615
@@ -69,7 +77,7 @@ Begin VB.Form ViewProcess
       BorderStyle     =   1
       Appearance      =   1
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Gill Sans MT"
+         Name            =   "Arial"
          Size            =   12
          Charset         =   0
          Weight          =   700
@@ -252,6 +260,7 @@ Private Sub Form_Resize()
         ListView1.Height = ScaleHeight - 750
     End If
     ListView1.Width = ScaleWidth
+    Command3.Top = ScaleHeight - 650
     Command2.Top = ScaleHeight - 650
     Command1.Top = ScaleHeight - 650
     Label1.Top = ScaleHeight - 650
@@ -284,20 +293,20 @@ ListView1.Sorted = True
 End Sub
 
 Private Sub ListView1_DblClick()
+    
     ProgressBar.Show
     ProgressBar.Timer1.Enabled = False
     DoEvents
     Reset
     WorkingLive = True
+    reportViewed = True
     If ListView1.SelectedItem Is Nothing Then
         Exit Sub
     End If
-    ProcessID = Val(ListView1.SelectedItem.Text)
-    ViewProcess.ListView1.ListItems.Clear
-    ViewProcess.Hide
-    ViewProcess.Refresh
-    ReportForm.Show
-    RefreshReportForViewing
+    processId = Val(ListView1.SelectedItem.Text)
+
+    OpenCRViewer (processId)
+
     MDIForm1.CloseToolList.Enabled = True
     ProgressBar.Hide
     ProgressBar.Timer1.Enabled = False

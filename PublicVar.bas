@@ -1,6 +1,6 @@
 Attribute VB_Name = "PublicVar"
 
-Public ProcessID As Long
+Public processId As Long
 Public OldProcessID As Long
 Public toolID As Long
 Public itemID As Long
@@ -23,6 +23,8 @@ Dim inv As New Collection
 
 Public craxReport As New CRAXDRT.Report
 Public reportOpened As Boolean
+Public reportViewed As Boolean
+
 
 Public craxApp As New CRAXDRT.Application
 
@@ -59,12 +61,7 @@ Public LastToolDescription As String
 Public MultiTurret As Boolean
 Public openSQLStatement As String
 
-' Fac is a build parameter indicating whether this program will be used
-' in Indiana or Alabama
-Public BUILDTYPE As Integer
-Public Const IND = 1
-Public Const AL = 2
-Public Const TEST = 3
+
 Public Const TOOLLIST_RPT_IND = "\\buschesv2\public\Report Files\toollist.rpt"
 Public Const TOOLLIST_RPT_AL = "\\hartselle-public\Shared\Public\Report Files\toollist.rpt"
 Public Const TOOLLIST_RPT_TEST = "\\hartselle-public\Shared\Public\Report Files\toollistTest.rpt"
@@ -75,19 +72,88 @@ Public Const WM_USER = &H400
 Public Const TV_FIRST = &H1100
 Public Const TTM_ACTIVATE = (WM_USER + 1)
 Public Const TVM_GETTOOLTIPS = (TV_FIRST + 25)
+
+
 Public Declare Function SendMessage Lib "user32" _
 Alias "SendMessageA" _
 (ByVal hwnd As Long, ByVal wMsg As Long, _
 ByVal wParam As Long, lParam As Any) As Long
+' http://www.vbforums.com/showthread.php?348138-Classic-VB-How-do-I-open-a-file-web-page-in-its-default-application
+'in General-Declarations:
+'https://msdn.microsoft.com/en-us/library/windows/desktop/bb762153(v=vs.85).aspx
+Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
+    ByVal hwnd As Long, _
+    ByVal lpOperation As String, _
+    ByVal lpFile As String, _
+    ByVal lpParameters As String, _
+    ByVal lpDirectory As String, _
+    ByVal nShowCmd As Long) As Long
+    
+Private Const WAIT_INFINITE = -1&
+Private Const SYNCHRONIZE = &H100000
+
+'Be careful have form of same name
+'Private Declare Function OpenProcess Lib "kernel32" _
+'  (ByVal dwDesiredAccess As Long, _
+'   ByVal bInheritHandle As Long, _
+'   ByVal dwProcessId As Long) As Long
+   
+Private Declare Function WaitForSingleObject Lib "kernel32" _
+  (ByVal hHandle As Long, _
+   ByVal dwMilliseconds As Long) As Long
+   
+Private Declare Function CloseHandle Lib "kernel32" _
+  (ByVal hObject As Long) As Long
+  
+Private Declare Function GetExitCodeProcess Lib "kernel32" _
+(ByVal hProcess As Long, lpExitCode As Long) As Long
+
+Private Const PROCESS_QUERY_INFORMATION = &H400
+Private Const STATUS_PENDING = &H103&
+
+Private Declare Function GetWindowTextLength Lib "user32" Alias "GetWindowTextLengthA" (ByVal hwnd As Long) As Long
+Private Declare Function GetWindowText Lib "user32" Alias "GetWindowTextA" (ByVal hwnd As Long, ByVal lpString As String, ByVal cch As Long) As Long
+Private Declare Function EnumWindows Lib "user32" (ByVal lpEnumFunc As Long, ByVal lParam As Long) As Long
+Private Declare Function SetWindowPos Lib "user32" (ByVal hwnd As Long, ByVal hWndInsertAfter As Long, ByVal x As Long, ByVal y As Long, ByVal cx As Long, ByVal cy As Long, ByVal wFlags As Long) As Long
+Private Declare Function SetForegroundWindow Lib "user32" (ByVal hwnd As Long) As Long
+
+Private m_TargetString As String
+Private m_TargetHwnd As Long
+
+Private Const SWP_NOOWNERZORDER = &H200
+Private Const SWP_NOSIZE = &H1
+Private Const SWP_NOZORDER = &H4
+
+Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
+
+' Fac is a build parameter indicating whether this program will be used
+' in Indiana or Alabama
+Public BUILDTYPE As Integer
+Public Const IND = 1
+Public Const AL = 2
+Public Const TEST = 3
+Public CRVIEWER As String
+'Example code (same effect as the examples above)
+'  Call OpenURL("http://www.VBForums.com")
+'  Call OpenAFile("c:\My folder\Test.doc")
 Public Sub Init()
     ' Fac is a build parameter indicating whether this program will be used
     ' in Indiana or Alabama
-    BUILDTYPE = IND
 '    If (BUILDTYPE = TEST) Then
 '    ElseIf (BUILDTYPE = IND) Then
 '    ElseIf (BUILDTYPE = AL) Then
 '    End If
 ' TOOLLIST_RPT_AL
+    BUILDTYPE = IND
+    If (BUILDTYPE = TEST) Then
+        CRVIEWER = "\\buschesv2\public\MIS\Busche Software Installation Files\CRSilentViewerManifest\CRSilentViewer.appref-ms"
+    ElseIf (BUILDTYPE = IND) Then
+        CRVIEWER = "\\buschesv2\public\MIS\Busche Software Installation Files\CRSilentViewerManifest\CRSilentViewer.appref-ms"
+    ElseIf (BUILDTYPE = AL) Then
+        CRVIEWER = "\\hartselle-public\shared\Public\MIS\Busche Software Installation Files\CRSilentViewerManifest\CRSilentViewer.appref-ms"
+    End If
+    
     
     Set sqlConn = New ADODB.Connection
     If (BUILDTYPE = TEST) Then
@@ -159,6 +225,81 @@ Public Sub Init()
 '    InitializeReport
     ToolChangeCntr = 0
 End Sub
+' Check a returned task to see if it's the one we want.
+Public Function EnumCallback(ByVal app_hWnd As Long, ByVal param As Long) As Long
+Dim buf As String
+Dim Title As String
+Dim length As Long
+
+    ' Get the window's title.
+    length = GetWindowTextLength(app_hWnd)
+    buf = Space$(length)
+    length = GetWindowText(app_hWnd, buf, length)
+    Title = Left$(buf, length)
+
+    ' See if the title contains the target string.
+    If InStr(Title, m_TargetString) <> 0 Then
+        ' This is the one we want.
+        m_TargetHwnd = app_hWnd
+
+        ' Stop searching.
+        EnumCallback = 0
+    Else
+        ' Continue searching.
+        EnumCallback = 1
+    End If
+End Function
+' Find a window with a title containing target_string
+' and return its hWnd.
+Public Function FindWindowByPartialTitle(ByVal target_string As String) As Long
+    m_TargetString = target_string
+    m_TargetHwnd = 0
+
+    ' Enumerate windows.
+    EnumWindows AddressOf EnumCallback, 0
+
+    ' Return the hWnd found (if any).
+    FindWindowByPartialTitle = m_TargetHwnd
+End Function 'Declare Function GetWindowText Lib "user32" Alias "GetWindowTextA" (ByVal hwnd As Long, ByVal lpString As String, ByVal cch As Long) As Long
+Public Sub Pause(SecsDelay As Single)
+   Dim TimeOut   As Single
+   Dim PrevTimer As Single
+   
+   PrevTimer = Timer
+   TimeOut = PrevTimer + SecsDelay
+   Do While PrevTimer < TimeOut
+  '    Sleep 4 '-- Timer is only updated every 1/64 sec = 15.625 millisecs.
+      DoEvents
+      If Timer < PrevTimer Then TimeOut = TimeOut - 86400 '-- pass midnight
+      PrevTimer = Timer
+   Loop
+End Sub
+ 
+Public Sub OpenCRViewer(processId As String)
+   Dim hProcess As Long
+   Dim taskId As Long
+    Dim exitCode As Long
+    Dim target_hwnd As Long
+   taskId = ShellExecute(Screen.ActiveForm.hwnd, "open", CRVIEWER, processId, "C:\", ByVal 0)
+' TRY TO MAKE THE CRSilentViewer Mode..No Success
+'   Pause (5)
+'    Do
+ '       target_hwnd = FindWindowByPartialTitle(processId)
+  '      If target_hwnd <> 0 Then
+   '     Else
+    '        Pause (1)
+     '   End If
+  '  Loop While target_hwnd = 0
+ '  ViewProcess.Show
+'   taskId = ShellExecute(Screen.ActiveForm.hwnd, "open", strURL, vbNullString, "C:\", ByVal 0)
+
+End Sub
+ 
+ 
+Public Sub RunDotNetReport()
+ '   Call Shell(App.Path & "\" & App.EXEName & ".exe", 1)
+ Call Shell(App.Path & "\" & crvtest, 1)
+End Sub
 'THIS FUNCTION IS NO LONGER USED
 'Public Sub InitializeReport()
  '   Set craxReport = craxApp.OpenReport("\\buschesv2\public\Report Files\toollist.rpt")
@@ -186,7 +327,7 @@ Public Sub RunReport()
     
     craxReport.DiscardSavedData
     craxReport.ParameterFields.GetItemByName("ProcessID").ClearCurrentValueAndRange
-    craxReport.ParameterFields.GetItemByName("ProcessID").AddCurrentValue (ProcessID)
+    craxReport.ParameterFields.GetItemByName("ProcessID").AddCurrentValue (processId)
     ReportForm.CRViewer1.ReportSource = craxReport
     ReportForm.CRViewer1.Refresh
     ReportForm.CRViewer1.ViewReport
@@ -301,9 +442,9 @@ Public Sub AddProcess()
     sqlRS.Update
     sqlRS.Close
     sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] ORDER BY PROCESSID DESC", sqlConn, adOpenKeyset, adLockReadOnly
-    ProcessID = sqlRS.Fields("ProcessID")
+    processId = sqlRS.Fields("ProcessID")
     sqlRS.Close
-    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockOptimistic
+    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockOptimistic
     sqlRS.Fields("OriginalProcessID") = sqlRS.Fields("ProcessID")
     sqlRS.Update
     Set sqlRS = Nothing
@@ -410,7 +551,7 @@ End Sub
 
 Public Sub GetAssignedPartNumbers()
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(ProcessID), sqlConn
+    sqlRS.Open "SELECT * FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(processId), sqlConn
     While Not sqlRS.EOF
         ProcessAttr.SelectedPartsList.AddItem (sqlRS.Fields("PartNumbers"))
         sqlRS.MoveNext
@@ -428,7 +569,7 @@ Public Sub GetToolPartNumbers()
     sqlRS.Close
     Set sqlRS = Nothing
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(ProcessID), sqlConn
+    sqlRS.Open "SELECT * FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(processId), sqlConn
     While Not sqlRS.EOF
         ToolAttr.AllPartNumbersList.AddItem (sqlRS.Fields("PartNumbers"))
         sqlRS.MoveNext
@@ -438,7 +579,7 @@ Public Sub GetToolPartNumbers()
 End Sub
 Public Sub GetAvailableToolPartNumbers()
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(ProcessID), sqlConn
+    sqlRS.Open "SELECT * FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(processId), sqlConn
     While Not sqlRS.EOF
         ToolAttr.AllPartNumbersList.AddItem (sqlRS.Fields("PartNumbers"))
         sqlRS.MoveNext
@@ -449,7 +590,7 @@ End Sub
 
 Public Sub GetAssignedPlant()
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST PLANT] WHERE PROCESSID = " + Str(ProcessID) + " ORDER BY PLANT", sqlConn
+    sqlRS.Open "SELECT * FROM [TOOLLIST PLANT] WHERE PROCESSID = " + Str(processId) + " ORDER BY PLANT", sqlConn
     While Not sqlRS.EOF
         ProcessAttr.SelectedPlantsList.AddItem (sqlRS.Fields("Plant"))
         sqlRS.MoveNext
@@ -461,7 +602,7 @@ End Sub
 Public Sub GetProcessDetails()
     Dim i As Integer
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn
+    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn
     If Not IsNull(sqlRS.Fields("PartFamily")) Then
         ProcessAttr.PartFamilyTXT.Text = sqlRS.Fields("PartFamily")
     End If
@@ -667,7 +808,7 @@ Public Sub GetQty()
 End Sub
 Public Sub UpdatePartNumbers()
     Set sqlCMD = New ADODB.Command
-    sqlCMD.CommandText = "DELETE  FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(ProcessID)
+    sqlCMD.CommandText = "DELETE  FROM [TOOLLIST PARTNUMBERS] WHERE PROCESSID =" + Str(processId)
     sqlCMD.ActiveConnection = sqlConn
     sqlCMD.Execute
     Set sqlCMD = Nothing
@@ -677,7 +818,7 @@ Public Sub UpdatePartNumbers()
     i = 0
     While i < ProcessAttr.SelectedPartsList.ListCount
         sqlRS.AddNew
-        sqlRS.Fields("ProcessID") = ProcessID
+        sqlRS.Fields("ProcessID") = processId
         sqlRS.Fields("PartNumbers") = Trim(ProcessAttr.SelectedPartsList.List(i))
         sqlRS.Update
         i = i + 1
@@ -688,7 +829,7 @@ End Sub
 Public Sub UpdatePlants()
     Dim PlantsChanged As Boolean
     Set sqlCMD = New ADODB.Command
-    sqlCMD.CommandText = "DELETE  FROM [TOOLLIST PLANT] WHERE PROCESSID =" + Str(ProcessID)
+    sqlCMD.CommandText = "DELETE  FROM [TOOLLIST PLANT] WHERE PROCESSID =" + Str(processId)
     sqlCMD.ActiveConnection = sqlConn
     sqlCMD.Execute
     Set sqlCMD = Nothing
@@ -703,7 +844,7 @@ Public Sub UpdatePlants()
     i = 0
     While i < ProcessAttr.SelectedPlantsList.ListCount
         sqlRS.AddNew
-        sqlRS.Fields("ProcessID") = ProcessID
+        sqlRS.Fields("ProcessID") = processId
         sqlRS.Fields("Plant") = Trim(ProcessAttr.SelectedPlantsList.List(i))
         sqlRS.Update
         i = i + 1
@@ -713,7 +854,7 @@ Public Sub UpdatePlants()
     i = 0
     
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [ToolList PLANT] WHERE PROCESSID =" + Str(ProcessID) + " ORDER BY PLANT", sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT * FROM [ToolList PLANT] WHERE PROCESSID =" + Str(processId) + " ORDER BY PLANT", sqlConn, adOpenKeyset, adLockReadOnly
     While Not sqlRS.EOF
         PlantChange(i) = sqlRS.Fields("Plant")
         i = i + 1
@@ -746,7 +887,7 @@ End Sub
 Public Sub UpdateProcessDetails()
     Dim i As Integer
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockOptimistic
+    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockOptimistic
     sqlRS.Fields("PartFamily") = UCase(ProcessAttr.PartFamilyTXT.Text)
     sqlRS.Fields("OperationNumber") = Val(ProcessAttr.OpNumTXT.Text)
     sqlRS.Fields("OperationDescription") = UCase(ProcessAttr.OpDescTXT.Text)
@@ -1015,11 +1156,11 @@ Public Sub BuildToolList()
     ToolList.TreeView1.Nodes.Clear
     Set sqlRS = New ADODB.Recordset
     Set SQLRS2 = New ADODB.Recordset
-    sqlRS.Open "SELECT TOOLID, TOOLNUMBER, OPDESCRIPTION FROM [TOOLLIST TOOL] WHERE PROCESSID = " + Str(ProcessID) + " ORDER BY TOOLORDER", sqlConn
-    ToolList.TreeView1.Nodes.Add , , "Process" + Trim(Str(ProcessID)), "Process #" + Str(ProcessID)
-    ToolList.TreeView1.Nodes.Item("Process" + Trim(Str(ProcessID))).Expanded = True
+    sqlRS.Open "SELECT TOOLID, TOOLNUMBER, OPDESCRIPTION FROM [TOOLLIST TOOL] WHERE PROCESSID = " + Str(processId) + " ORDER BY TOOLORDER", sqlConn
+    ToolList.TreeView1.Nodes.Add , , "Process" + Trim(Str(processId)), "Process #" + Str(processId)
+    ToolList.TreeView1.Nodes.Item("Process" + Trim(Str(processId))).Expanded = True
     While Not sqlRS.EOF
-        ToolList.TreeView1.Nodes.Add "Process" + Trim(Str(ProcessID)), tvwChild, "TOOL" + Trim(Str(sqlRS.Fields("TOOLID"))), "TOOL " + Trim(Str(sqlRS.Fields("TOOLNUMBER"))) + " - " + sqlRS.Fields("OPDESCRIPTION")
+        ToolList.TreeView1.Nodes.Add "Process" + Trim(Str(processId)), tvwChild, "TOOL" + Trim(Str(sqlRS.Fields("TOOLID"))), "TOOL " + Trim(Str(sqlRS.Fields("TOOLNUMBER"))) + " - " + sqlRS.Fields("OPDESCRIPTION")
         If toolID = sqlRS.Fields("TOOLID") Then
             ToolList.TreeView1.Nodes.Item("TOOL" + Trim(Str(sqlRS.Fields("TOOLID")))).Expanded = True
             ToolList.TreeView1.Nodes.Item("TOOL" + Trim(Str(sqlRS.Fields("TOOLID")))).Selected = True
@@ -1038,9 +1179,9 @@ Public Sub BuildFixtureList()
     Dim invItem As Inventry
     ToolList.TreeView4.Nodes.Clear
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT ITEMID, TOOLDESCRIPTION, CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID = " + Str(ProcessID) + " ORDER BY ITEMID", sqlConn
-    ToolList.TreeView4.Nodes.Add , , "Process" + Trim(Str(ProcessID)), "Process #" + Str(ProcessID)
-    ToolList.TreeView4.Nodes.Item("Process" + Trim(Str(ProcessID))).Expanded = True
+    sqlRS.Open "SELECT ITEMID, TOOLDESCRIPTION, CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID = " + Str(processId) + " ORDER BY ITEMID", sqlConn
+    ToolList.TreeView4.Nodes.Add , , "Process" + Trim(Str(processId)), "Process #" + Str(processId)
+    ToolList.TreeView4.Nodes.Item("Process" + Trim(Str(processId))).Expanded = True
     While Not sqlRS.EOF
         If (False = Exists(inv, sqlRS.Fields("CRIBTOOLID"))) Then
             Set invItem = New Inventry
@@ -1048,7 +1189,7 @@ Public Sub BuildFixtureList()
             invItem.description1 = GetInvDescription(sqlRS.Fields("CRIBTOOLID"))
             inv.Add invItem, sqlRS.Fields("CRIBTOOLID")
         End If
-        ToolList.TreeView4.Nodes.Add "Process" + Trim(Str(ProcessID)), tvwChild, "FIXT" + Trim(Str(sqlRS.Fields("ITEMID"))), GetItemDescription(sqlRS.Fields("CRIBTOOLID"))
+        ToolList.TreeView4.Nodes.Add "Process" + Trim(Str(processId)), tvwChild, "FIXT" + Trim(Str(sqlRS.Fields("ITEMID"))), GetItemDescription(sqlRS.Fields("CRIBTOOLID"))
         sqlRS.MoveNext
     Wend
     sqlRS.Close
@@ -1058,9 +1199,9 @@ Public Sub BuildMiscList()
     Dim invItem As Inventry
     ToolList.TreeView2.Nodes.Clear
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT ITEMID,CRIBTOOLID, TOOLDESCRIPTION FROM [TOOLLIST MISC] WHERE PROCESSID = " + Str(ProcessID) + " ORDER BY ITEMID", sqlConn
-    ToolList.TreeView2.Nodes.Add , , "Process" + Trim(Str(ProcessID)), "Process #" + Str(ProcessID)
-    ToolList.TreeView2.Nodes.Item("Process" + Trim(Str(ProcessID))).Expanded = True
+    sqlRS.Open "SELECT ITEMID,CRIBTOOLID, TOOLDESCRIPTION FROM [TOOLLIST MISC] WHERE PROCESSID = " + Str(processId) + " ORDER BY ITEMID", sqlConn
+    ToolList.TreeView2.Nodes.Add , , "Process" + Trim(Str(processId)), "Process #" + Str(processId)
+    ToolList.TreeView2.Nodes.Item("Process" + Trim(Str(processId))).Expanded = True
     While Not sqlRS.EOF
         'Is it already in collection
         If (False = Exists(inv, sqlRS.Fields("CRIBTOOLID"))) Then
@@ -1069,7 +1210,7 @@ Public Sub BuildMiscList()
             invItem.description1 = GetInvDescription(sqlRS.Fields("CRIBTOOLID"))
             inv.Add invItem, sqlRS.Fields("CRIBTOOLID")
         End If
-        ToolList.TreeView2.Nodes.Add "Process" + Trim(Str(ProcessID)), tvwChild, "MISC" + Trim(Str(sqlRS.Fields("ITEMID"))), GetItemDescription(sqlRS.Fields("CRIBTOOLID"))
+        ToolList.TreeView2.Nodes.Add "Process" + Trim(Str(processId)), tvwChild, "MISC" + Trim(Str(sqlRS.Fields("ITEMID"))), GetItemDescription(sqlRS.Fields("CRIBTOOLID"))
         sqlRS.MoveNext
     Wend
     sqlRS.Close
@@ -1086,7 +1227,7 @@ End Function
 Public Sub InitToolListItems()
     Dim invItem As Inventry
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT ITEMID, TOOLID, TOOLTYPE , CRIBTOOLID, TOOLDESCRIPTION FROM [TOOLLIST ITEM] WHERE PROCESSID = " + Str(ProcessID), sqlConn
+    sqlRS.Open "SELECT ITEMID, TOOLID, TOOLTYPE , CRIBTOOLID, TOOLDESCRIPTION FROM [TOOLLIST ITEM] WHERE PROCESSID = " + Str(processId), sqlConn
     While Not sqlRS.EOF
         If (False = Exists(inv, sqlRS.Fields("CRIBTOOLID"))) Then
             Set invItem = New Inventry
@@ -1193,7 +1334,7 @@ Public Sub AddToolSub()
     sqlRS.CursorLocation = adUseClient
     sqlRS.Open "[TOOLLIST TOOL]", sqlConn, adOpenKeyset, adLockOptimistic, adCmdTable
     sqlRS.AddNew
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Fields("ToolNumber") = Val(ToolAttr.ToolNumberTXT.Text)
     sqlRS.Fields("OpDescription") = UCase(ToolAttr.OpDescTXT.Text)
     sqlRS.Fields("Alternate") = ToolAttr.AlternateCHECK.Value
@@ -1332,7 +1473,7 @@ Public Sub AddItemSub()
     sqlRS.AddNew
     sqlRS.Fields("ToolType") = UCase(ItemAttri.ItemGroupTXT.Text)
     sqlRS.Fields("ToolDescription") = ItemAttri.ItemNumberCOMBO.Text
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Fields("ToolID") = toolID
     sqlRS.Fields("CribToolID") = ItemAttri.CribNumberIDTXT.Text
     sqlRS.Fields("Consumable") = ItemAttri.ConsumableCHECK.Value
@@ -1493,11 +1634,11 @@ End Sub
 Public Sub BuildRevList()
     ToolList.TreeView3.Nodes.Clear
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT REVISIONID,REVISION, [REVISION DESCRIPTION],[REVISION DATE],[REVISION BY] FROM [TOOLLIST REV] WHERE PROCESSID = " + Str(ProcessID) + " ORDER BY REVISION", sqlConn
-    ToolList.TreeView3.Nodes.Add , , "Process" + Trim(Str(ProcessID)), "Process #" + Str(ProcessID)
-    ToolList.TreeView3.Nodes.Item("Process" + Trim(Str(ProcessID))).Expanded = True
+    sqlRS.Open "SELECT REVISIONID,REVISION, [REVISION DESCRIPTION],[REVISION DATE],[REVISION BY] FROM [TOOLLIST REV] WHERE PROCESSID = " + Str(processId) + " ORDER BY REVISION", sqlConn
+    ToolList.TreeView3.Nodes.Add , , "Process" + Trim(Str(processId)), "Process #" + Str(processId)
+    ToolList.TreeView3.Nodes.Item("Process" + Trim(Str(processId))).Expanded = True
     While Not sqlRS.EOF
-        ToolList.TreeView3.Nodes.Add "Process" + Trim(Str(ProcessID)), tvwChild, "REV" + Trim(Str(sqlRS.Fields("REVISIONID"))), "REVISION - " + Trim(Str(sqlRS.Fields("REVISION")))
+        ToolList.TreeView3.Nodes.Add "Process" + Trim(Str(processId)), tvwChild, "REV" + Trim(Str(sqlRS.Fields("REVISIONID"))), "REVISION - " + Trim(Str(sqlRS.Fields("REVISION")))
         sqlRS.MoveNext
     Wend
     sqlRS.Close
@@ -1675,7 +1816,7 @@ Public Sub UpdateMiscDetails()
     sqlRS.Open "SELECT * FROM [TOOLLIST MISC] WHERE ITEMID =" + Str(MiscToolID), sqlConn, adOpenKeyset, adLockOptimistic
     sqlRS.Fields("ToolType") = UCase(MiscItem.ItemGroupTXT.Text)
     sqlRS.Fields("ToolDescription") = UCase(MiscItem.ItemNumberCOMBO.Text)
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Fields("CribToolID") = MiscItem.CribNumberIDTXT.Text
     sqlRS.Fields("Consumable") = MiscItem.ConsumableCHECK.Value
     sqlRS.Fields("ToolbossStock") = MiscItem.TBStock.Value
@@ -1725,7 +1866,7 @@ Public Sub UpdateFixtureDetails()
     sqlRS.Open "SELECT * FROM [TOOLLIST FIXTURE] WHERE ITEMID =" + Str(FixtureToolID), sqlConn, adOpenKeyset, adLockOptimistic
     sqlRS.Fields("ToolType") = UCase(FixtureItem.ItemGroupTXT.Text)
     sqlRS.Fields("ToolDescription") = UCase(FixtureItem.ItemNumberCOMBO.Text)
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Fields("ToolbossStock") = FixtureItem.TBStock.Value
     sqlRS.Fields("CribToolID") = FixtureItem.CribNumberIDTXT.Text
     sqlRS.Fields("Manufacturer") = UCase(FixtureItem.ManufacturerTXT.Text)
@@ -1787,7 +1928,7 @@ Public Sub AddMiscSub()
     sqlRS.AddNew
     sqlRS.Fields("ToolType") = UCase(MiscItem.ItemGroupTXT.Text)
     sqlRS.Fields("ToolDescription") = MiscItem.ItemNumberCOMBO.Text
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Fields("CribToolID") = MiscItem.CribNumberIDTXT.Text
     sqlRS.Fields("Consumable") = MiscItem.ConsumableCHECK.Value
     sqlRS.Fields("Manufacturer") = UCase(MiscItem.ManufacturerTXT.Text)
@@ -1812,7 +1953,7 @@ Public Sub AddFixtureSub()
     sqlRS.AddNew
     sqlRS.Fields("ToolType") = UCase(FixtureItem.ItemGroupTXT.Text)
     sqlRS.Fields("ToolDescription") = FixtureItem.ItemNumberCOMBO.Text
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Fields("CribToolID") = FixtureItem.CribNumberIDTXT.Text
     sqlRS.Fields("Manufacturer") = UCase(FixtureItem.ManufacturerTXT.Text)
     sqlRS.Fields("Quantity") = FixtureItem.QuantityTXT.Text
@@ -1838,7 +1979,7 @@ Public Sub AddRevisionSub()
     sqlRS.Fields("Revision") = UCase(RevisionForm.RevNumTXT.Text)
     sqlRS.Fields("Revision Description") = UCase(RevisionForm.RevDescTXT.Text)
     sqlRS.Fields("Revision Date") = RevisionForm.RevDate
-    sqlRS.Fields("ProcessID") = ProcessID
+    sqlRS.Fields("ProcessID") = processId
     sqlRS.Update
     sqlRS.Close
     Set sqlRS = Nothing
@@ -2070,7 +2211,7 @@ End Sub
 Public Sub PopulateSequence()
     Dim itmx2
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST TOOL] WHERE PROCESSID =" + Str(ProcessID) + " ORDER BY TOOLORDER ", sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT * FROM [TOOLLIST TOOL] WHERE PROCESSID =" + Str(processId) + " ORDER BY TOOLORDER ", sqlConn, adOpenKeyset, adLockReadOnly
     While Not sqlRS.EOF
         Set itmx2 = ToolAttr.SequenceList.ListItems.Add(, , sqlRS.Fields("ToolOrder"))
         If Not IsNull(sqlRS.Fields("ToolNumber")) Then
@@ -2086,7 +2227,7 @@ Public Sub PopulateSequence()
 End Sub
 Function GetNextSequence() As Long
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST TOOL] WHERE PROCESSID =" + Str(ProcessID) + " ORDER BY TOOLORDER ", sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT * FROM [TOOLLIST TOOL] WHERE PROCESSID =" + Str(processId) + " ORDER BY TOOLORDER ", sqlConn, adOpenKeyset, adLockReadOnly
     If Not sqlRS.EOF Then
         sqlRS.MoveLast
         GetNextSequence = sqlRS.Fields("ToolOrder") + 1
@@ -2099,7 +2240,7 @@ End Function
 Function ReSequenceTools(CurSequence As Long)
     Set sqlRS = New ADODB.Recordset
     sqlRS.CursorLocation = adUseClient
-    sqlRS.Open "SELECT * FROM [TOOLLIST TOOL] WHERE PROCESSID =" + Str(ProcessID) + " AND TOOLORDER >= " + Str(CurSequence) + " AND TOOLID <> " + Str(toolID) + " ORDER BY TOOLORDER", sqlConn, adOpenDynamic, adLockOptimistic
+    sqlRS.Open "SELECT * FROM [TOOLLIST TOOL] WHERE PROCESSID =" + Str(processId) + " AND TOOLORDER >= " + Str(CurSequence) + " AND TOOLID <> " + Str(toolID) + " ORDER BY TOOLORDER", sqlConn, adOpenDynamic, adLockOptimistic
     While Not sqlRS.EOF
         CurSequence = CurSequence + 1
         sqlRS.Fields("ToolOrder") = CurSequence
@@ -2113,7 +2254,7 @@ End Function
 Public Sub SetMultiTurret()
     Dim i As Integer
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockOptimistic
+    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockOptimistic
     i = 0
     If Not IsNull(sqlRS.Fields("MultiTurret")) Then
         If sqlRS.Fields("MultiTurret") Then
@@ -2138,7 +2279,7 @@ Public Sub CalculateCosts()
         ItemAttri.MonthlyUsageTXT = Round((ItemAttri.QuantityTXT * (sqlRS.Fields("AdjustedVolume") / 12)) / (ItemAttri.ToolLifeTXT * ItemAttri.CuttingEdgesTXT), 3)
     Else
         sqlRS.Close
-        sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn
+        sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn
         ItemAttri.MonthlyUsageTXT.Text = Round((Val(ItemAttri.QuantityTXT.Text) * (sqlRS.Fields("AnnualVolume") / 12)) / (ItemAttri.ToolLifeTXT * ItemAttri.CuttingEdgesTXT), 3)
     End If
     
@@ -2186,7 +2327,7 @@ End Sub
 
 Public Sub PopulateChangesForRouting()
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn
+    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn
     Dim originalPlantText As String
     Dim j As Integer
     Dim lsi
@@ -2203,7 +2344,7 @@ Public Sub PopulateChangesForRouting()
     i = 0
     CreateRouting.UsernameLBL.Caption = Environ("USERNAME")
     CreateRouting.DateLBL.Caption = Date
-    CreateRouting.ToolListLBL.Caption = Str(ProcessID) + " - " + sqlRS.Fields("CUSTOMER") + " - " + sqlRS.Fields("PartFamily") + " - " + sqlRS.Fields("OperationDescription")
+    CreateRouting.ToolListLBL.Caption = Str(processId) + " - " + sqlRS.Fields("CUSTOMER") + " - " + sqlRS.Fields("PartFamily") + " - " + sqlRS.Fields("OperationDescription")
     While i < 200
         Select Case ToolChanges(0, i)
         Case "STATUS"
@@ -2352,7 +2493,7 @@ Public Sub ConsolidateChanges()
             Loop
             'CHECK IF REMOVED TOOL STILL EXISTS ELSEWHERE IN THE PROCESS
             Set sqlRS = New ADODB.Recordset
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             IsStillInToolList = False
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
@@ -2361,7 +2502,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2369,7 +2510,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2407,7 +2548,7 @@ Public Sub ConsolidateChanges()
             Wend
             'CHECK IF ADDED TOOL STILL EXISTS ELSEWHERE IN THE PROCESS
             Set sqlRS = New ADODB.Recordset
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             IsStillInToolList = False
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
@@ -2416,7 +2557,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2424,7 +2565,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2458,7 +2599,7 @@ Public Sub ConsolidateChanges()
             Wend
             'CHECK IF ADDED TOOL STILL EXISTS ELSEWHERE IN THE PROCESS
             Set sqlRS = New ADODB.Recordset
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             IsStillInToolList = False
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
@@ -2467,7 +2608,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2475,7 +2616,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2509,7 +2650,7 @@ Public Sub ConsolidateChanges()
             Wend
             'CHECK IF ADDED TOOL STILL EXISTS ELSEWHERE IN THE PROCESS
             Set sqlRS = New ADODB.Recordset
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             IsStillInToolList = False
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
@@ -2518,7 +2659,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2526,7 +2667,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2556,7 +2697,7 @@ Public Sub ConsolidateChanges()
             
             'CHECK IF USAGE TOOL STILL EXISTS IN THE PROCESS
             Set sqlRS = New ADODB.Recordset
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
             IsStillInToolList = False
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
@@ -2583,7 +2724,7 @@ Public Sub ConsolidateChanges()
             Wend
             'CHECK IF TOOL IS STILL MARKED FOR STOCKING AND IS STILL IN TOOL LIST(COULD OF BEEN DELETED AFTER THE THE STOCK WAS CHECKED)
             Set sqlRS = New ADODB.Recordset
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID) + " AND TOOLBOSSSTOCK = 1", sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId) + " AND TOOLBOSSSTOCK = 1", sqlConn, adOpenKeyset, adLockReadOnly
             IsStillInToolList = False
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
@@ -2592,7 +2733,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(ProcessID) + " AND TOOLBOSSSTOCK = 1", sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(processId) + " AND TOOLBOSSSTOCK = 1", sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2600,7 +2741,7 @@ Public Sub ConsolidateChanges()
                 sqlRS.MoveNext
             Wend
             sqlRS.Close
-            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(ProcessID) + " AND TOOLBOSSSTOCK = 1", sqlConn, adOpenKeyset, adLockReadOnly
+            sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(processId) + " AND TOOLBOSSSTOCK = 1", sqlConn, adOpenKeyset, adLockReadOnly
             While Not sqlRS.EOF
                 If CreateRouting.ToolingChangeList.ListItems.Item(i).Text = sqlRS.Fields("CRIBTOOLID") Then
                     IsStillInToolList = True
@@ -2663,7 +2804,7 @@ Public Sub AddKit()
         sqlRS.AddNew
         sqlRS.Fields("ToolType") = UCase(CribRS.Fields("ITEMCLASS"))
         sqlRS.Fields("ToolDescription") = UCase(CribRS.Fields("DESCRIPTION1"))
-        sqlRS.Fields("ProcessID") = ProcessID
+        sqlRS.Fields("ProcessID") = processId
         sqlRS.Fields("ToolID") = toolID
         sqlRS.Fields("CribToolID") = UCase(CribRS.Fields("ITEMNUMBER"))
         sqlRS.Fields("Consumable") = 0
@@ -2711,7 +2852,7 @@ Public Sub PopulateOriginalTools()
     Dim i As Integer
     i = 0
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST ITEM] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
     
     While Not sqlRS.EOF
         OriginalTools(i) = sqlRS.Fields("CRIBTOOLID")
@@ -2719,14 +2860,14 @@ Public Sub PopulateOriginalTools()
         sqlRS.MoveNext
     Wend
     sqlRS.Close
-    sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST MISC] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
     While Not sqlRS.EOF
         OriginalTools(i) = sqlRS.Fields("CRIBTOOLID")
         i = i + 1
         sqlRS.MoveNext
     Wend
     sqlRS.Close
-    sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT CRIBTOOLID FROM [TOOLLIST FIXTURE] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
     While Not sqlRS.EOF
         OriginalTools(i) = sqlRS.Fields("CRIBTOOLID")
         i = i + 1
@@ -2734,7 +2875,7 @@ Public Sub PopulateOriginalTools()
     Wend
     sqlRS.Close
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT ANNUALVOLUME, RELEASED, OBSOLETE FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT ANNUALVOLUME, RELEASED, OBSOLETE FROM [TOOLLIST MASTER] WHERE PROCESSID =" + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
     OriginalVolume = sqlRS.Fields("ANNUALVOLUME")
     OriginalReleased = sqlRS.Fields("RELEASED")
     OriginalObsolete = sqlRS.Fields("OBSOLETE")
@@ -2742,7 +2883,7 @@ Public Sub PopulateOriginalTools()
     
     i = 0
     Set sqlRS = New ADODB.Recordset
-    sqlRS.Open "SELECT * FROM [ToolList PLANT] WHERE PROCESSID =" + Str(ProcessID) + " ORDER BY PLANT", sqlConn, adOpenKeyset, adLockReadOnly
+    sqlRS.Open "SELECT * FROM [ToolList PLANT] WHERE PROCESSID =" + Str(processId) + " ORDER BY PLANT", sqlConn, adOpenKeyset, adLockReadOnly
     While Not sqlRS.EOF
         OriginalPlant(i) = sqlRS.Fields("Plant")
         i = i + 1
@@ -2786,7 +2927,7 @@ Public Sub Reset()
     ClearOriginalTools
     ClearRoutingForm
     DoEvents
-    ProcessID = 0
+    processId = 0
     OldProcessID = 0
     toolID = 0
     itemID = 0
@@ -2857,13 +2998,13 @@ Public Sub WriteRouting()
             ReportForm.Hide
         End If
         Set sqlRS = New ADODB.Recordset
-        sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Trim(Str(ProcessID)), sqlConn, adOpenKeyset, adLockReadOnly
+        sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Trim(Str(processId)), sqlConn, adOpenKeyset, adLockReadOnly
         OldProcessID = sqlRS.Fields("RevOfProcessID")
         Set sqlRS = New ADODB.Recordset
         sqlRS.CursorLocation = adUseClient
         sqlRS.Open "[TOOLLIST CHANGE MASTER]", sqlConn, adOpenKeyset, adLockOptimistic, adCmdTable
         sqlRS.AddNew
-        sqlRS.Fields("PROCESSID") = ProcessID
+        sqlRS.Fields("PROCESSID") = processId
         sqlRS.Fields("COMPLETE") = False
         sqlRS.Fields("COMMENTS") = Trim(CreateRouting.ReasonTxt.Text)
         EmailMessage = vbCrLf + vbCrLf + "Reason For Change: " + Trim(CreateRouting.ReasonTxt.Text) + vbCrLf + vbCrLf
@@ -2979,7 +3120,7 @@ Public Sub WriteRouting()
                     CribRS.Open "SELECT ITEMNUMBER,ITEMCLASS,CRIBBIN FROM INVENTRY " & _
                         "LEFT OUTER JOIN STATION ON INVENTRY.ITEMNUMBER = STATION.ITEM " & _
                         "Where ItemNumber = '" + sqlRS.Fields("CRIBMASTERID") + "'", CribConn, adOpenKeyset, adLockReadOnly
-                    SQLRS4.Open "SELECT TOOLBOSSSTOCK FROM [TOOLLIST ITEM] WHERE TOOLBOSSSTOCK = 1 AND PROCESSID = " + Trim(Str(ProcessID)), sqlConn, adOpenKeyset
+                    SQLRS4.Open "SELECT TOOLBOSSSTOCK FROM [TOOLLIST ITEM] WHERE TOOLBOSSSTOCK = 1 AND PROCESSID = " + Trim(Str(processId)), sqlConn, adOpenKeyset
                     If Not CribRS.EOF Then
                         SQLRS3.MoveFirst
                         SQLRS3.Find ("ITEMCLASS LIKE '" + CribRS.Fields("ITEMCLASS") + "'")
@@ -3162,7 +3303,7 @@ Public Sub WriteRouting()
         sqlRS.Close
         SQLRS2.Close
         SQLRS3.Close
-        sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Str(ProcessID), sqlConn, adOpenKeyset, adLockReadOnly
+        sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Str(processId), sqlConn, adOpenKeyset, adLockReadOnly
         SQLRS2.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Str(sqlRS.Fields("REVOFPROCESSID")), sqlConn, adOpenKeyset, adLockOptimistic
         SQLRS2.Fields("REVINPROCESS") = 1
         SQLRS2.Update
@@ -3188,12 +3329,12 @@ End Sub
 
 
 Public Function IsReadyToExit() As Boolean
-    If Not WorkingLive And (0 <> ProcessID) Then
+    If Not WorkingLive And (0 <> processId) Then
         If CreateRouting.ToolingChangeList.ListItems.Count > 0 Or CreateRouting.StatusChangeList.ListItems.Count > 0 Or CreateRouting.ToolingChangeList.ListItems.Count > 0 Or CreateRouting.PlantChangeList.ListItems.Count > 0 Or ToolChanges(0, 0) <> "" Then
             IsReadyToExit = False
         Else
             IsReadyToExit = True
-            DeleteProcessSub (ProcessID)
+            DeleteProcessSub (processId)
         End If
     Else
         IsReadyToExit = True
@@ -4251,7 +4392,7 @@ Function IsInitialRelease(pID As Long) As Boolean
     Set sqlRS = New ADODB.Recordset
     sqlRS.Open "SELECT * FROM [TOOLLIST CHANGE MASTER] WHERE PROCESSCHANGEID = " + Str(pID), sqlConn, adOpenKeyset, adLockReadOnly
     IsInitialRelease = sqlRS.Fields("InitialRelease")
-    ProcessID = sqlRS.Fields("ProcessID")
+    processId = sqlRS.Fields("ProcessID")
     sqlRS.Close
     Set sqlRS = Nothing
 End Function
@@ -4368,10 +4509,10 @@ Public Sub PopulateItemChangeInfo(pID As Long, cmId As String)
 
     If CreateRouting.GetViewingType <> "Creation" Then
         sqlRS.Open "SELECT * FROM [TOOLLIST CHANGE MASTER] WHERE PROCESSCHANGEID = " + Str(pID), sqlConn, adOpenDynamic, adLockReadOnly
-        ProcessID = sqlRS.Fields("PROCESSID")
+        processId = sqlRS.Fields("PROCESSID")
         sqlRS.Close
     End If
-    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Str(ProcessID), sqlConn, adOpenDynamic, adLockReadOnly
+    sqlRS.Open "SELECT * FROM [TOOLLIST MASTER] WHERE PROCESSID = " + Str(processId), sqlConn, adOpenDynamic, adLockReadOnly
     OldProcessID = sqlRS.Fields("REVOFPROCESSID")
     sqlRS.Close
     
@@ -4381,9 +4522,9 @@ Public Sub PopulateItemChangeInfo(pID As Long, cmId As String)
         Dim aou As Long
         Dim usageSum As Long
         
-        mu = SPCalcUsage(cmId, ProcessID)
+        mu = SPCalcUsage(cmId, processId)
         omu = SPCalcUsage(cmId, OldProcessID)
-        aou = SPAllOtherUsage(cmId, ProcessID, OldProcessID)
+        aou = SPAllOtherUsage(cmId, processId, OldProcessID)
         usageSum = mu + aou
         ItemComments.MonthlyUsageTXT.Text = Str(mu)
         ItemComments.OldMonthlyUsageTXT.Text = Str(omu)
@@ -4528,7 +4669,7 @@ Public Sub RefreshReportForViewing()
     
     craxReport.DiscardSavedData
     craxReport.ParameterFields.GetItemByName("ProcessID").ClearCurrentValueAndRange
-    craxReport.ParameterFields.GetItemByName("ProcessID").AddCurrentValue (ProcessID)
+    craxReport.ParameterFields.GetItemByName("ProcessID").AddCurrentValue (processId)
     ReportForm.CRViewer1.ReportSource = craxReport
     ReportForm.CRViewer1.Refresh
     ReportForm.CRViewer1.ViewReport

@@ -1,5 +1,5 @@
 [Root]
-Most Recent Package=Standard Setup Package 2
+Most Recent Package=ToolList
 
 
 [Package|Dep File 1|Root]
@@ -604,5 +604,123 @@ ServerSideCab=
 File1=C:\Users\bgroves\Desktop\Temp Code projects\Tool List\Release2.4.2\Dependency\setup.exe
 File2=C:\Users\bgroves\Desktop\Temp Code projects\Tool List\Release2.4.2\Dependency\Setup.Lst
 File3=C:\Users\bgroves\Desktop\Temp Code projects\Tool List\Release2.4.2\Dependency\Busche Tool List.CAB
+Handler1=PDWizard.FolderDplySubWiz
+Handler2=PDWizard.WebPostDplySubWiz
+
+
+[Package|ToolList|Root]
+SubWizProgID=PDWizard.SetupPkgSubWiz
+BuildFolder=C:\src\Tooling List\Release2.4.3
+
+[Package|ToolList|Configure DAO ISAMs]
+Applicable=No
+
+[Package|ToolList|Configure DAO ODBC]
+JetWorkspace=
+ODBCDirect=
+
+[Package|ToolList|Files Found]
+
+[Package|ToolList|Files Released]
+
+[Package|ToolList|Missing Dependency Information]
+C:\Windows\SysWOW64\sptbdock.ocx=
+C:\Windows\SysWOW64\craxdrt.dll=
+C:\Windows\SysWOW64\CRViewer.dll=
+C:\Windows\SysWOW64\CMDLGD6.dll=
+C:\Windows\SysWOW64\ossmtp.dll=
+
+[Package|ToolList|Out-of-Date Dependency Information]
+C:\Windows\SysWOW64\MSCOMCTL.OCX=
+C:\Windows\SysWOW64\msstdfmt.dll=
+
+[Package|ToolList|Files Added]
+
+[Package|ToolList|Files Removed]
+
+[Package|ToolList|Files In Project]
+C:\src\Tooling List\Busche Tool List.exe=Yes
+C:\Windows\System32\msvbvm60.dll=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\OLEAUT32.DLL=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\OLEPRO32.DLL=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\ASYCFILT.DLL=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\STDOLE2.TLB=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\COMCAT.DLL=Yes
+C:\Windows\SysWOW64\msstdfmt.dll=Yes
+C:\Windows\SysWOW64\ossmtp.dll=Yes
+C:\Windows\SysWOW64\CMDLGD6.dll=Yes
+C:\Windows\SysWOW64\CRViewer.dll=Yes
+C:\Windows\SysWOW64\craxdrt.dll=Yes
+C:\Windows\SysWOW64\MSCOMCTL.OCX=Yes
+C:\Windows\SysWOW64\sptbdock.ocx=Yes
+C:\Windows\SysWOW64\mscomct2.ocx=Yes
+C:\Windows\SysWOW64\richtx32.Ocx=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\RICHED32.DLL=Yes
+C:\Windows\SysWOW64\ComDlg32.OCX=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\MDAC_TYP.EXE=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\SETUP.EXE=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\SETUP1.EXE=Yes
+C:\Windows\System32\VB6STKIT.DLL=Yes
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\ST6UNST.EXE=Yes
+
+[Package|ToolList|Configure Registry Files]
+Applicable=No
+
+[Package|ToolList|Configure Remote Servers]
+Applicable=No
+
+[Package|ToolList|Install Locations]
+C:\src\Tooling List\Busche Tool List.exe=$(AppPath)
+C:\Windows\System32\msvbvm60.dll=$(WinSysPathSysFile)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\OLEAUT32.DLL=$(WinSysPathSysFile)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\OLEPRO32.DLL=$(WinSysPathSysFile)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\ASYCFILT.DLL=$(WinSysPathSysFile)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\STDOLE2.TLB=$(WinSysPathSysFile)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\COMCAT.DLL=$(WinSysPathSysFile)
+C:\Windows\SysWOW64\msstdfmt.dll=$(WinSysPath)
+C:\Windows\SysWOW64\ossmtp.dll=$(WinSysPath)
+C:\Windows\SysWOW64\CMDLGD6.dll=$(WinSysPath)
+C:\Windows\SysWOW64\CRViewer.dll=$(WinSysPath)
+C:\Windows\SysWOW64\craxdrt.dll=$(WinSysPath)
+C:\Windows\SysWOW64\MSCOMCTL.OCX=$(WinSysPath)
+C:\Windows\SysWOW64\sptbdock.ocx=$(WinSysPath)
+C:\Windows\SysWOW64\mscomct2.ocx=$(WinSysPath)
+C:\Windows\SysWOW64\richtx32.Ocx=$(WinSysPath)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\RICHED32.DLL=$(WinSysPathSysFile)
+C:\Windows\SysWOW64\ComDlg32.OCX=$(WinSysPath)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\MDAC_TYP.EXE=$(AppPath)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\SETUP.EXE=$(AppPath)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\SETUP1.EXE=$(WinPath)
+C:\Windows\System32\VB6STKIT.DLL=$(WinSysPathSysFile)
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\ST6UNST.EXE=$(WinPath)
+
+[Package|ToolList|Configure Shared Files]
+Applicable=Yes
+C:\src\Tooling List\Busche Tool List.exe=No
+C:\Program Files (x86)\Microsoft Visual Studio\VB98\Wizards\PDWizard\Redist\MDAC_TYP.EXE=No
+
+[Package|ToolList|Distribution]
+Type=single
+Size=
+Title=Busche Tool List
+
+[Package|ToolList|IconGroups]
+Group0=Busche Tool List
+PrivateGroup0=-1
+Parent0=$(Programs)
+
+[Package|ToolList|Busche Tool List]
+Icon1="Busche Tool List.exe"
+Title1=Busche Tool List
+StartIn1=$(AppPath)
+Key1=Icon1
+
+[Package|ToolList|Package]
+PackageFolder=C:\src\Tooling List\Release2.4.3
+ProjectFolder=C:\src\Tooling List
+ServerSideCab=
+File1=C:\src\Tooling List\Release2.4.3\setup.exe
+File2=C:\src\Tooling List\Release2.4.3\Setup.Lst
+File3=C:\src\Tooling List\Release2.4.3\Busche Tool List.CAB
 Handler1=PDWizard.FolderDplySubWiz
 Handler2=PDWizard.WebPostDplySubWiz

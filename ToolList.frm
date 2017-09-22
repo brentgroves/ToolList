@@ -51,7 +51,7 @@ Begin VB.Form ToolList
       FullRowSelect   =   -1  'True
       Appearance      =   1
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Gill Sans MT"
+         Name            =   "Arial"
          Size            =   9
          Charset         =   0
          Weight          =   700
@@ -77,7 +77,7 @@ Begin VB.Form ToolList
       FullRowSelect   =   -1  'True
       Appearance      =   1
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Gill Sans MT"
+         Name            =   "Arial"
          Size            =   9
          Charset         =   0
          Weight          =   700
@@ -103,7 +103,7 @@ Begin VB.Form ToolList
       FullRowSelect   =   -1  'True
       Appearance      =   1
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Gill Sans MT"
+         Name            =   "Arial"
          Size            =   9
          Charset         =   0
          Weight          =   700
@@ -128,7 +128,7 @@ Begin VB.Form ToolList
       FullRowSelect   =   -1  'True
       Appearance      =   1
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Gill Sans MT"
+         Name            =   "Arial"
          Size            =   9
          Charset         =   0
          Weight          =   700
@@ -170,7 +170,7 @@ Begin VB.Form ToolList
          EndProperty
       EndProperty
       BeginProperty Font {0BE35203-8F91-11CE-9DE3-00AA004BB851} 
-         Name            =   "Gill Sans MT"
+         Name            =   "Arial"
          Size            =   8.25
          Charset         =   0
          Weight          =   700
@@ -532,22 +532,26 @@ End Sub
 
 Private Sub ReleaseBtn_Click()
     If MsgBox("Releasing this tool list will require all future changes to go through a routing process. Are you sure you want to continue?", vbYesNo, "Submit for Relase?") = vbYes Then
-        SubmitForInitialRelease (ProcessID)
+        SubmitForInitialRelease (processId)
     End If
 End Sub
 
 Private Sub ReportBtn_Click()
+'Note: If you close the toollist before the report finishes it will display no data because the toollist is deleted unless the
+' the modifications are commited.
     Dim i As Integer
     i = 5
     ReportBtn.Enabled = False
     ProgressBar.Show
     ProgressBar.Timer1.Enabled = True
     DoEvents
-    RunReport
+    OpenCRViewer (processId)
     ProgressBar.Hide
     ProgressBar.Timer1.Enabled = False
-    ReportBtn.Caption = "Refresh Report"
+'    ReportBtn.Caption = "Refresh Report"
     ReportBtn.Enabled = True
+    
+
 
 End Sub
 

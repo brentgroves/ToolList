@@ -1,0 +1,11 @@
+If Busche ToolList is Already Installed:
+1. Overwrite C:\Program Files(x86)\Busche Tool List\Busche Tool List.exe with Busche Tool List.exe from the Indiana or Alabama directory.
+
+apt autoremove
+apt-get dist-upgrade
+
+If Busche ToolList has never been Installed:
+1. run setup.exe
+2. Overwrite C:\Program Files(x86)\Busche Tool List\Busche Tool List.exe with Busche Tool List.exe from the Indiana or Alabama directory.
+
+Doug - al-qc-pc-3
